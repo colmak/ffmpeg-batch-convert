@@ -1,11 +1,11 @@
 # ffmpeg-batch-convert-davinci-linux
 
-A robust batch video converter optimized for DaVinci Resolve compatibility on Linux systems. This tool automatically converts video files to formats that work seamlessly with DaVinci Resolve, with support for parallel processing and resume functionality.
+A robust batch video converter optimized for DaVinci Resolve compatibility on Linux systems. This tool automatically converts video files to formats that work seamlessly with DaVinci Resolve, with support for resume functionality and command-line options.
 
 ## Features
 
 - **DaVinci Resolve Optimized**: Converts videos to VP9/FLAC (MKV), H.264/PCM (MOV), or H.264/AAC (MP4) formats
-- **Parallel Processing**: Multi-threaded conversion for faster processing
+- **Command Line Interface**: Flexible CLI options for different workflows
 - **Resume Support**: Automatically resumes interrupted conversions using cache
 - **Queue Management**: Processes files in batches with queue tracking
 - **Configurable**: Customizable settings via configuration file
@@ -16,7 +16,6 @@ A robust batch video converter optimized for DaVinci Resolve compatibility on Li
 
 - FFmpeg (with VP9 and FLAC support)
 - Bash 4.0 or higher
-- GNU Parallel (optional, for better performance)
 
 ## Installation
 
@@ -48,15 +47,32 @@ sudo pacman -S ffmpeg
 
 ## Usage
 
-### Basic Usage
-
-Convert all video files in the current directory:
+### Command Line Options
 
 ```bash
+# Basic usage - convert all videos in current directory to MKV
 ./convert.sh
+
+# Convert to MOV format for maximum DaVinci Resolve compatibility
+./convert.sh --format mov
+
+# Convert to MP4 format (niche use cases)
+./convert.sh -f mp4
+
+# Convert videos from specific directory
+./convert.sh --input /path/to/your/videos
+
+# Convert and delete original files
+./convert.sh --delete
+
+# Combine options
+./convert.sh -f mov -i /path/to/videos -d
+
+# Show help
+./convert.sh --help
 ```
 
-### Configuration
+### Configuration File
 
 Create or edit `.convertrc` to customize settings:
 
@@ -69,12 +85,6 @@ OUTPUT_FORMAT="mkv"
 
 # Delete original files after conversion (true or false)
 DELETE_AFTER=false
-
-# Enable parallel processing
-PARALLEL=true
-
-# Number of parallel jobs
-PARALLEL_JOBS=3
 ```
 
 ### Supported Input Formats
@@ -136,12 +146,11 @@ The converter automatically tracks completed conversions in `.convert_cache.txt`
 - Manually edit this file to control which files get converted
 - Delete the queue file to regenerate it with current directory contents
 
-### Parallel Processing
+### Command Line vs Config File
 
-The converter uses all available CPU cores by default. Adjust `PARALLEL_JOBS` in `.convertrc` to:
-
-- Reduce system load: Set to 1-2 for background processing
-- Maximize speed: Set to CPU core count or higher (if you have sufficient RAM)
+Command line options override configuration file settings:
+- Use CLI options for one-time conversions
+- Use `.convertrc` for your default workflow settings
 
 ### Logging
 
@@ -165,8 +174,9 @@ Check `convert.log` for detailed information about:
 
 **Slow conversion speed**
 
-- Increase `PARALLEL_JOBS` in `.convertrc`
-- Install GNU Parallel for better job management: `sudo apt install parallel`
+- FFmpeg is already highly optimized and uses multiple CPU cores internally
+- Consider using faster storage (SSD) for better I/O performance
+- Ensure sufficient RAM is available for the conversion process
 
 **DaVinci Resolve won't import files**
 
@@ -178,9 +188,9 @@ Check `convert.log` for detailed information about:
 ### Performance Tips
 
 1. **SSD Storage**: Use SSD for faster I/O during conversion
-2. **RAM**: Ensure sufficient RAM for parallel jobs (2-4GB per job)
-3. **CPU**: More cores = faster parallel processing
-4. **Network Storage**: Avoid converting files over network mounts
+2. **RAM**: Ensure sufficient RAM is available (4-8GB recommended)
+3. **CPU**: FFmpeg automatically utilizes multiple CPU cores efficiently
+4. **Network Storage**: Avoid converting files over network mounts for best performance
 
 ## License
 
