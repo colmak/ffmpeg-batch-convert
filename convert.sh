@@ -4,10 +4,10 @@ set -euo pipefail
 input_dir=$(pwd)
 delete_after=false
 convert_to_mp4=false
-log_file="dconvert.log"
+log_file="convert.log"
 
 print_help() {
-  echo "dconvert.sh - Bulk video converter"
+  echo "convert.sh - Bulk video converter"
   echo
   echo "This script converts all video files in the current directory to either:"
   echo "  • MKV (default) with VP9 (video) + FLAC (audio), or"
@@ -16,7 +16,7 @@ print_help() {
   echo "Supported input formats: .mp4, .webm, .mkv, .avi, .mov (any case)"
   echo
   echo "Usage:"
-  echo "  ./dconvert.sh [--delete-after] [--to_mp4] [--help]"
+  echo "  ./convert.sh [--delete-after] [--to_mp4] [--help]"
   echo
   echo "Options:"
   echo "  --delete-after    Delete original files after successful conversion"
