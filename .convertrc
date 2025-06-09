@@ -1,0 +1,18 @@
+# Default config file for convert.sh
+
+# Directory to scan (defaults to current dir if empty)
+INPUT_DIR=""
+
+# Output format (mkv or mp4)
+OUTPUT_FORMAT="mkv"
+
+# Delete original files after conversion (true or false)
+DELETE_AFTER=false
+
+# Enable parallel processing
+PARALLEL=true
+
+# Number of parallel jobs (default is number of CPU cores)
+PARALLEL_JOBS=3
+
+
