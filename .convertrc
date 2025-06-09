@@ -3,6 +3,15 @@
 # Directory to scan (defaults to current dir if empty)
 INPUT_DIR=""
 
+# Output format (mkv, mov, or mp4)
+OUTPUT_FORMAT="mkv"
+
+# Delete original files after conversion (true or false)
+DELETE_AFTER=false file for convert.sh
+
+# Directory to scan (defaults to current dir if empty)
+INPUT_DIR=""
+
 # Output format (mkv or mov)
 OUTPUT_FORMAT="mkv"
 

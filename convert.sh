@@ -1,24 +1,82 @@
 #!/bin/bash
 set -euo pipefail
 
+show_usage() {
+  cat << EOF
+Usage: $0 [OPTIONS]
+
+FFmpeg DaVinci Resolve Linux Converter
+Converts video files to DaVinci Resolve compatible formats.
+
+OPTIONS:
+  -f, --format FORMAT    Output format: mkv, mov, mp4 (default: mkv)
+  -i, --input DIR        Input directory (default: current directory)
+  -d, --delete           Delete original files after conversion
+  -h, --help             Show this help message
+  -v, --version          Show version information
+
+EXAMPLES:
+  $0                     Convert all videos in current dir to MKV
+  $0 -f mov              Convert to MOV format with PCM audio
+  $0 -f mp4 -d           Convert to MP4 and delete originals
+  $0 -i /path/to/videos  Convert videos from specific directory
+
+CONFIG FILE:
+  Create .convertrc in your project directory to set default options.
+  Command line options override config file settings.
+
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -f|--format)
+      CLI_OUTPUT_FORMAT="$2"
+      shift 2
+      ;;
+    -i|--input)
+      CLI_INPUT_DIR="$2"
+      shift 2
+      ;;
+    -d|--delete)
+      CLI_DELETE_AFTER=true
+      shift
+      ;;
+    -h|--help)
+      show_usage
+      exit 0
+      ;;
+    -v|--version)
+      echo "FFmpeg DaVinci Resolve Linux Converter v1.0"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      show_usage
+      exit 1
+      ;;
+  esac
+done
+
 config_file=".convertrc"
 queue_file="queue.txt"
 cache_file=".convert_cache.txt"
 log_file="convert.log"
 
-# Default config values
 INPUT_DIR=$(pwd)
 DELETE_AFTER=false
 OUTPUT_FORMAT="mkv"
-PARALLEL_JOBS=$(nproc 2>/dev/null || echo 4)
 
-# Load config file
 if [ -f "$config_file" ]; then
   echo "⚙️ Loading config from $config_file"
   source "$config_file"
 fi
 
-# Set output format and directory
+# Override with CLI arguments
+INPUT_DIR="${CLI_INPUT_DIR:-$INPUT_DIR}"
+DELETE_AFTER="${CLI_DELETE_AFTER:-$DELETE_AFTER}"
+OUTPUT_FORMAT="${CLI_OUTPUT_FORMAT:-$OUTPUT_FORMAT}"
+
 case "$OUTPUT_FORMAT" in
   "mp4")
     output_format="mp4"
@@ -41,7 +99,6 @@ log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$log_file"
 }
 
-# Create queue if not exists
 if [ ! -f "$queue_file" ]; then
   echo "📋 Creating queue file..."
   shopt -s nullglob nocaseglob
@@ -58,7 +115,6 @@ if [ ! -s "$queue_file" ]; then
   exit 0
 fi
 
-# Load cache into memory
 declare -A cache
 if [ -f "$cache_file" ]; then
   while IFS= read -r line; do
@@ -89,7 +145,6 @@ convert_file() {
       ;;
   esac
 
-  # Skip if in cache with success
   if [[ "${cache[$video_file]}" == "success" ]]; then
     log "⏩ Skipping already converted: $video_file"
     return
@@ -112,21 +167,14 @@ convert_file() {
 
 export -f convert_file log
 export output_format output_dir DELETE_AFTER cache_file log_file
-export -A cache
 
-log "🔁 Starting conversion using $PARALLEL_JOBS parallel jobs..."
+log "🔁 Starting conversion..."
 
 mapfile -t file_list < "$queue_file"
 
-if command -v parallel &> /dev/null; then
-  parallel -j "$PARALLEL_JOBS" convert_file ::: "${file_list[@]}"
-else
-  for file in "${file_list[@]}"; do
-    convert_file "$file" &
-    while (( $(jobs -rp | wc -l) >= PARALLEL_JOBS )); do wait -n; done
-  done
-  wait
-fi
+for file in "${file_list[@]}"; do
+  convert_file "$file"
+done
 
 log "✅ All files processed."
 log "📂 Output directory: $output_dir"
