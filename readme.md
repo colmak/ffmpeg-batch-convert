@@ -4,7 +4,7 @@ A robust batch video converter optimized for DaVinci Resolve compatibility on Li
 
 ## Features
 
-- **DaVinci Resolve Optimized**: Converts videos to VP9/FLAC (MKV) or H.264/AAC (MP4) formats
+- **DaVinci Resolve Optimized**: Converts videos to VP9/FLAC (MKV), H.264/PCM (MOV), or H.264/AAC (MP4) formats
 - **Parallel Processing**: Multi-threaded conversion for faster processing
 - **Resume Support**: Automatically resumes interrupted conversions using cache
 - **Queue Management**: Processes files in batches with queue tracking
@@ -64,7 +64,7 @@ Create or edit `.convertrc` to customize settings:
 # Directory to scan (defaults to current dir if empty)
 INPUT_DIR="/path/to/your/videos"
 
-# Output format (mkv or mp4)
+# Output format (mkv, mov, or mp4)
 OUTPUT_FORMAT="mkv"
 
 # Delete original files after conversion (true or false)
@@ -91,13 +91,19 @@ PARALLEL_JOBS=3
 
 - **Video Codec**: VP9 with compression level 12
 - **Audio Codec**: FLAC (lossless)
-- **Best for**: Professional editing, color grading, high quality
+- **Best for**: Professional editing, color grading, high quality archival
 
-#### MP4 (Alternative)
+#### MOV (Alternative - Maximum Compatibility)
+
+- **Video Codec**: H.264
+- **Audio Codec**: PCM (uncompressed)
+- **Best for**: Maximum compatibility with DaVinci Resolve, professional editing workflows
+
+#### MP4 (Niche Use - AAC Audio Requirements)
 
 - **Video Codec**: H.264
 - **Audio Codec**: AAC
-- **Best for**: Smaller file sizes, broader compatibility
+- **Best for**: Specific workflows requiring AAC audio, web sharing, broader compatibility outside DaVinci Resolve
 
 ## File Structure
 
@@ -106,8 +112,12 @@ After running the converter, your directory will contain:
 ```
 your-video-folder/
 ├── original-video.mp4          # Original files (deleted if DELETE_AFTER=true)
-├── output_mkv/                 # Converted MKV files
+├── output_mkv/                 # Converted MKV files (default)
 │   └── original-video.mkv
+├── output_mov/                 # Converted MOV files (if selected)
+│   └── original-video.mov
+├── output_mp4/                 # Converted MP4 files (if selected)
+│   └── original-video.mp4
 ├── queue.txt                   # Processing queue
 ├── .convert_cache.txt          # Conversion cache for resume
 ├── convert.log                 # Detailed conversion log
@@ -160,7 +170,9 @@ Check `convert.log` for detailed information about:
 
 **DaVinci Resolve won't import files**
 
-- Try MP4 format if MKV doesn't work: Set `OUTPUT_FORMAT="mp4"` in `.convertrc`
+- MKV format (default) should work well with DaVinci Resolve for high-quality editing
+- Try MOV format for maximum compatibility: Set `OUTPUT_FORMAT="mov"` in `.convertrc`
+- MP4 format may have issues with AAC audio on Linux DaVinci Resolve: Set `OUTPUT_FORMAT="mp4"` only if specifically needed
 - Ensure your DaVinci Resolve version supports the codecs
 
 ### Performance Tips
