@@ -18,14 +18,21 @@ if [ -f "$config_file" ]; then
   source "$config_file"
 fi
 
-# Override output format flag
-if [ "$OUTPUT_FORMAT" = "mp4" ]; then
-  convert_to_mp4=true
-  output_dir="$INPUT_DIR/output_mp4"
-else
-  convert_to_mp4=false
-  output_dir="$INPUT_DIR/output_mkv"
-fi
+# Set output format and directory
+case "$OUTPUT_FORMAT" in
+  "mp4")
+    output_format="mp4"
+    output_dir="$INPUT_DIR/output_mp4"
+    ;;
+  "mov")
+    output_format="mov"
+    output_dir="$INPUT_DIR/output_mov"
+    ;;
+  *)
+    output_format="mkv"
+    output_dir="$INPUT_DIR/output_mkv"
+    ;;
+esac
 
 mkdir -p "$output_dir"
 > "$log_file"
@@ -67,13 +74,20 @@ convert_file() {
   base_name=$(basename "${video_file%.*}")
   local output_file
 
-  if [ "$convert_to_mp4" = true ]; then
-    output_file="$output_dir/$base_name.mp4"
-    codec_args="-c:v libx264 -c:a aac"
-  else
-    output_file="$output_dir/$base_name.mkv"
-    codec_args="-c:v vp9 -c:a flac -compression_level 12"
-  fi
+  case "$output_format" in
+    "mp4")
+      output_file="$output_dir/$base_name.mp4"
+      codec_args="-c:v libx264 -c:a aac"
+      ;;
+    "mov")
+      output_file="$output_dir/$base_name.mov"
+      codec_args="-c:v libx264 -c:a pcm_s16le"
+      ;;
+    *)
+      output_file="$output_dir/$base_name.mkv"
+      codec_args="-c:v vp9 -c:a flac -compression_level 12"
+      ;;
+  esac
 
   # Skip if in cache with success
   if [[ "${cache[$video_file]}" == "success" ]]; then
@@ -97,7 +111,7 @@ convert_file() {
 }
 
 export -f convert_file log
-export convert_to_mp4 output_dir DELETE_AFTER cache_file log_file
+export output_format output_dir DELETE_AFTER cache_file log_file
 export -A cache
 
 log "🔁 Starting conversion using $PARALLEL_JOBS parallel jobs..."
