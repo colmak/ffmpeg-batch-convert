@@ -1,99 +1,118 @@
 #!/bin/bash
 set -euo pipefail
 
-input_dir=$(pwd)
-delete_after=false
-convert_to_mp4=false
+config_file=".convertrc"
+queue_file="queue.txt"
+cache_file=".convert_cache.txt"
 log_file="convert.log"
 
-print_help() {
-  echo "convert.sh - Bulk video converter"
-  echo
-  echo "This script converts all video files in the current directory to either:"
-  echo "  • MKV (default) with VP9 (video) + FLAC (audio), or"
-  echo "  • MP4 with H.264 (video) + AAC (audio) if --to_mp4 is set"
-  echo
-  echo "Supported input formats: .mp4, .webm, .mkv, .avi, .mov (any case)"
-  echo
-  echo "Usage:"
-  echo "  ./convert.sh [--delete-after] [--to_mp4] [--help]"
-  echo
-  echo "Options:"
-  echo "  --delete-after    Delete original files after successful conversion"
-  echo "  --to_mp4          Convert to MP4 instead of MKV"
-  echo "  --help            Show this help message"
-}
+# Default config values
+INPUT_DIR=$(pwd)
+DELETE_AFTER=false
+OUTPUT_FORMAT="mkv"
+PARALLEL_JOBS=$(nproc 2>/dev/null || echo 4)
+
+# Load config file
+if [ -f "$config_file" ]; then
+  echo "⚙️ Loading config from $config_file"
+  source "$config_file"
+fi
+
+# Override output format flag
+if [ "$OUTPUT_FORMAT" = "mp4" ]; then
+  convert_to_mp4=true
+  output_dir="$INPUT_DIR/output_mp4"
+else
+  convert_to_mp4=false
+  output_dir="$INPUT_DIR/output_mkv"
+fi
+
+mkdir -p "$output_dir"
+> "$log_file"
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$log_file"
 }
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --delete-after) delete_after=true ;;
-    --to_mp4) convert_to_mp4=true ;;
-    --help) print_help; exit 0 ;;
-    *) echo "Unknown flag: $1"; exit 1 ;;
-  esac
-  shift
-done
-
-if [ "$convert_to_mp4" = true ]; then
-  output_dir="$input_dir/output_mp4"
-else
-  output_dir="$input_dir/output_mkv"
+# Create queue if not exists
+if [ ! -f "$queue_file" ]; then
+  echo "📋 Creating queue file..."
+  shopt -s nullglob nocaseglob
+  video_extensions=(mp4 webm mkv avi mov)
+  for ext in "${video_extensions[@]}"; do
+    for file in "$INPUT_DIR"/*."$ext"; do
+      [ -f "$file" ] && echo "$file" >> "$queue_file"
+    done
+  done
 fi
 
-mkdir -p "$output_dir"
-> "$log_file"  
-
-shopt -s nullglob nocaseglob
-
-video_extensions=(mp4 webm mkv avi mov)
-file_list=()
-for ext in "${video_extensions[@]}"; do
-  for file in "$input_dir"/*."$ext"; do
-    [ -f "$file" ] && file_list+=("$file")
-  done
-done
-
-if [ ${#file_list[@]} -eq 0 ]; then
-  log "⚠️ No video files found in $input_dir"
+if [ ! -s "$queue_file" ]; then
+  log "⚠️ Queue is empty. Nothing to convert."
   exit 0
+fi
+
+# Load cache into memory
+declare -A cache
+if [ -f "$cache_file" ]; then
+  while IFS= read -r line; do
+    file="${line%%:*}"
+    status="${line##*:}"
+    cache["$file"]="$status"
+  done < "$cache_file"
 fi
 
 convert_file() {
   local video_file="$1"
-
   local base_name
   base_name=$(basename "${video_file%.*}")
   local output_file
 
   if [ "$convert_to_mp4" = true ]; then
     output_file="$output_dir/$base_name.mp4"
-    ffmpeg -i "$video_file" -c:v libx264 -c:a aac "$output_file" -y &>> "$log_file"
+    codec_args="-c:v libx264 -c:a aac"
   else
     output_file="$output_dir/$base_name.mkv"
-    ffmpeg -i "$video_file" -c:v vp9 -c:a flac -compression_level 12 "$output_file" -y &>> "$log_file"
+    codec_args="-c:v vp9 -c:a flac -compression_level 12"
   fi
 
-  if [ $? -eq 0 ]; then
+  # Skip if in cache with success
+  if [[ "${cache[$video_file]}" == "success" ]]; then
+    log "⏩ Skipping already converted: $video_file"
+    return
+  fi
+
+  ffmpeg -i "$video_file" $codec_args "$output_file" -y &>> "$log_file"
+  if ffmpeg -v error -i "$output_file" -f null - 2>>"$log_file"; then
     log "✅ Converted: $video_file → $output_file"
-    if [ "$delete_after" = true ]; then
+    echo "$video_file:success" >> "$cache_file"
+    if [ "$DELETE_AFTER" = true ]; then
       rm "$video_file"
       log "🗑️ Deleted original: $video_file"
     fi
   else
-    log "❌ Failed to convert: $video_file"
+    log "❌ Failed: $video_file"
+    echo "$video_file:fail" >> "$cache_file"
+    rm -f "$output_file"
   fi
 }
 
-log "🔍 Found ${#file_list[@]} file(s) to process"
-log "🔁 Starting conversion..."
+export -f convert_file log
+export convert_to_mp4 output_dir DELETE_AFTER cache_file log_file
+export -A cache
 
-for file in "${file_list[@]}"; do
-  convert_file "$file"
-done
+log "🔁 Starting conversion using $PARALLEL_JOBS parallel jobs..."
 
-log "✅ All files processed successfully."
-log "📂 Output files are in: $output_dir"
+mapfile -t file_list < "$queue_file"
+
+if command -v parallel &> /dev/null; then
+  parallel -j "$PARALLEL_JOBS" convert_file ::: "${file_list[@]}"
+else
+  for file in "${file_list[@]}"; do
+    convert_file "$file" &
+    while (( $(jobs -rp | wc -l) >= PARALLEL_JOBS )); do wait -n; done
+  done
+  wait
+fi
+
+log "✅ All files processed."
+log "📂 Output directory: $output_dir"
