@@ -3,7 +3,7 @@
 # Directory to scan (defaults to current dir if empty)
 INPUT_DIR=""
 
-# Output format (mkv or mp4)
+# Output format (mkv or mov)
 OUTPUT_FORMAT="mkv"
 
 # Delete original files after conversion (true or false)
