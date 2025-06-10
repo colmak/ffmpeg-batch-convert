@@ -7,7 +7,10 @@ INPUT_DIR=""
 OUTPUT_FORMAT="mkv"
 
 # Delete original files after conversion (true or false)
-DELETE_AFTER=false file for convert.sh
+DELETE_AFTER=false
+
+# Number of parallel conversion jobs (default: 3)
+PARALLEL_JOBS=3 file for convert.sh
 
 # Directory to scan (defaults to current dir if empty)
 INPUT_DIR=""
