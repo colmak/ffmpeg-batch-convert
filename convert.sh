@@ -11,6 +11,7 @@ Converts video files to DaVinci Resolve compatible formats.
 OPTIONS:
   -f, --format FORMAT    Output format: mkv, mov, mp4 (default: mkv)
   -i, --input DIR        Input directory (default: current directory)
+  -j, --jobs NUMBER      Number of parallel conversion jobs (default: 3)
   -d, --delete           Delete original files after conversion
   -h, --help             Show this help message
   -v, --version          Show version information
@@ -19,6 +20,8 @@ EXAMPLES:
   $0                     Convert all videos in current dir to MKV
   $0 -f mov              Convert to MOV format with PCM audio
   $0 -f mp4 -d           Convert to MP4 and delete originals
+  $0 -j 1                Convert one file at a time (sequential)
+  $0 -j 5                Convert up to 5 files simultaneously
   $0 -i /path/to/videos  Convert videos from specific directory
 
 CONFIG FILE:
@@ -36,6 +39,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -i|--input)
       CLI_INPUT_DIR="$2"
+      shift 2
+      ;;
+    -j|--jobs)
+      CLI_PARALLEL_JOBS="$2"
       shift 2
       ;;
     -d|--delete)
@@ -66,6 +73,7 @@ log_file="convert.log"
 INPUT_DIR=$(pwd)
 DELETE_AFTER=false
 OUTPUT_FORMAT="mkv"
+PARALLEL_JOBS=3
 
 if [ -f "$config_file" ]; then
   echo "⚙️ Loading config from $config_file"
@@ -76,6 +84,7 @@ fi
 INPUT_DIR="${CLI_INPUT_DIR:-$INPUT_DIR}"
 DELETE_AFTER="${CLI_DELETE_AFTER:-$DELETE_AFTER}"
 OUTPUT_FORMAT="${CLI_OUTPUT_FORMAT:-$OUTPUT_FORMAT}"
+PARALLEL_JOBS="${CLI_PARALLEL_JOBS:-$PARALLEL_JOBS}"
 
 case "$OUTPUT_FORMAT" in
   "mp4")
@@ -167,14 +176,25 @@ convert_file() {
 
 export -f convert_file log
 export output_format output_dir DELETE_AFTER cache_file log_file
+export -A cache
 
-log "🔁 Starting conversion..."
+log "🔁 Starting conversion using $PARALLEL_JOBS parallel jobs..."
 
 mapfile -t file_list < "$queue_file"
 
+# Process files with controlled parallelism
 for file in "${file_list[@]}"; do
-  convert_file "$file"
+  # Wait if we've reached the maximum number of parallel jobs
+  while (( $(jobs -rp | wc -l) >= PARALLEL_JOBS )); do
+    wait -n  # Wait for any job to complete
+  done
+  
+  # Start conversion in background
+  convert_file "$file" &
 done
+
+# Wait for all remaining jobs to complete
+wait
 
 log "✅ All files processed."
 log "📂 Output directory: $output_dir"
