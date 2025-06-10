@@ -1,10 +1,11 @@
 # ffmpeg-batch-convert-davinci-linux
 
-A robust batch video converter optimized for DaVinci Resolve compatibility on Linux systems. This tool automatically converts video files to formats that work seamlessly with DaVinci Resolve, with support for resume functionality and command-line options.
+A robust batch video converter optimized for DaVinci Resolve compatibility on Linux systems. This tool automatically converts video files to formats that work seamlessly with DaVinci Resolve, with support for controlled parallel processing and resume functionality.
 
 ## Features
 
 - **DaVinci Resolve Optimized**: Converts videos to VP9/FLAC (MKV), H.264/PCM (MOV), or H.264/AAC (MP4) formats
+- **Controlled Parallel Processing**: Process multiple files simultaneously with FFmpeg's built-in optimization
 - **Command Line Interface**: Flexible CLI options for different workflows
 - **Resume Support**: Automatically resumes interrupted conversions using cache
 - **Queue Management**: Processes files in batches with queue tracking
@@ -65,6 +66,12 @@ sudo pacman -S ffmpeg
 # Convert and delete original files
 ./convert.sh --delete
 
+# Convert with 5 parallel jobs for faster processing
+./convert.sh --jobs 5
+
+# Convert sequentially (one file at a time)
+./convert.sh -j 1
+
 # Combine options
 ./convert.sh -f mov -i /path/to/videos -d
 
@@ -85,6 +92,9 @@ OUTPUT_FORMAT="mkv"
 
 # Delete original files after conversion (true or false)
 DELETE_AFTER=false
+
+# Number of parallel conversion jobs (default: 3)
+PARALLEL_JOBS=3
 ```
 
 ### Supported Input Formats
@@ -146,6 +156,14 @@ The converter automatically tracks completed conversions in `.convert_cache.txt`
 - Manually edit this file to control which files get converted
 - Delete the queue file to regenerate it with current directory contents
 
+### Parallel Processing
+
+The converter can process multiple files simultaneously to improve overall throughput:
+- Default: 3 concurrent FFmpeg processes
+- Each FFmpeg process uses its own internal optimization
+- Adjust based on your system's CPU cores and available RAM
+- Use `-j 1` for sequential processing on lower-end systems
+
 ### Command Line vs Config File
 
 Command line options override configuration file settings:
@@ -174,9 +192,10 @@ Check `convert.log` for detailed information about:
 
 **Slow conversion speed**
 
+- Increase parallel jobs: `./convert.sh -j 5` (adjust based on your CPU cores)
 - FFmpeg is already highly optimized and uses multiple CPU cores internally
 - Consider using faster storage (SSD) for better I/O performance
-- Ensure sufficient RAM is available for the conversion process
+- Ensure sufficient RAM is available (4-8GB recommended per concurrent job)
 
 **DaVinci Resolve won't import files**
 
@@ -187,10 +206,11 @@ Check `convert.log` for detailed information about:
 
 ### Performance Tips
 
-1. **SSD Storage**: Use SSD for faster I/O during conversion
-2. **RAM**: Ensure sufficient RAM is available (4-8GB recommended)
-3. **CPU**: FFmpeg automatically utilizes multiple CPU cores efficiently
-4. **Network Storage**: Avoid converting files over network mounts for best performance
+1. **Parallel Processing**: Use 2-4 concurrent jobs on most systems (`-j 3` default)
+2. **SSD Storage**: Use SSD for faster I/O during conversion
+3. **RAM**: Ensure sufficient RAM (4-8GB per concurrent job recommended)
+4. **CPU**: FFmpeg automatically utilizes multiple CPU cores efficiently within each job
+5. **Network Storage**: Avoid converting files over network mounts for best performance
 
 ## License
 
