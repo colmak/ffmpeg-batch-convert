@@ -159,6 +159,7 @@ The converter automatically tracks completed conversions in `.convert_cache.txt`
 ### Parallel Processing
 
 The converter can process multiple files simultaneously to improve overall throughput:
+
 - Default: 3 concurrent FFmpeg processes
 - Each FFmpeg process uses its own internal optimization
 - Adjust based on your system's CPU cores and available RAM
@@ -167,6 +168,7 @@ The converter can process multiple files simultaneously to improve overall throu
 ### Command Line vs Config File
 
 Command line options override configuration file settings:
+
 - Use CLI options for one-time conversions
 - Use `.convertrc` for your default workflow settings
 
